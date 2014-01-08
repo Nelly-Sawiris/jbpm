@@ -104,79 +104,81 @@ public class FormProviderServiceImpl implements FormProviderService {
     @SuppressWarnings("unchecked")
     public String getFormDisplayTask(long taskId) {
         Task task = taskService.getTaskById(taskId);
-        String name = task.getNames().get(0).getText();
-        ProcessAssetDesc processDesc = dataService.getProcessById(task.getTaskData().getProcessId());
-        Map<String, Object> renderContext = new HashMap<String, Object>();
+        if(task != null){
+            String name = task.getNames().get(0).getText();
+            ProcessAssetDesc processDesc = dataService.getProcessById(task.getTaskData().getProcessId());
+            Map<String, Object> renderContext = new HashMap<String, Object>();
 
-        ContentMarshallerContext marshallerContext = getMarshallerContext(task);
-        // read task variables
-        Object input = null;
-        long inputContentId = task.getTaskData().getDocumentContentId();
-        if (inputContentId != -1) {
-            Content content = taskService.getContentById(inputContentId);
-            input = ContentMarshallerHelper.unmarshall(content.getContent(), marshallerContext.getEnvironment(), marshallerContext.getClassloader());
-        }
-        if (input == null) {
-            input = new HashMap<String, Object>();
-        }
-
-        Object output = null;
-        long outputContentId = task.getTaskData().getOutputContentId();
-        if (outputContentId != -1) {
-            Content content = taskService.getContentById(outputContentId);
-            output = ContentMarshallerHelper.unmarshall(content.getContent(), marshallerContext.getEnvironment(), marshallerContext.getClassloader());
-        }
-        if (output == null) {
-            output = new HashMap<String, Object>();
-        }
-
-        // prepare task variables for rendering
-        String processId = task.getTaskData().getProcessId();
-        Map<String, String> taskOutputMappings = null;
-        if (processId != null && !processId.equals("")) {
-
-            taskOutputMappings = bpmn2Service.getTaskOutputMappings(processId, task.getNames().iterator().next().getText());
-
-        }
-        if (taskOutputMappings == null) {
-            taskOutputMappings = new HashMap<String, String>();
-        }
-
-        // I need to replace the value that comes from the 
-        //process mappings with the value that can be stored in the output Content
-        Map<String, Object> finalOutput = new HashMap<String, Object>();
-        for (String key : taskOutputMappings.values()) {
-
-            Object value = ((Map<String, Object>) output).get(key);
-            if (value == null) {
-                // WM value = "";
+            ContentMarshallerContext marshallerContext = getMarshallerContext(task);
+            // read task variables
+            Object input = null;
+            long inputContentId = task.getTaskData().getDocumentContentId();
+            if (inputContentId != -1) {
+                Content content = taskService.getContentById(inputContentId);
+                input = ContentMarshallerHelper.unmarshall(content.getContent(), marshallerContext.getEnvironment(), marshallerContext.getClassloader());
             }
-            finalOutput.put(key, value);
-        }
-
-
-        // merge template with process variables        
-        renderContext.put("task", task);
-        renderContext.put("outputs", finalOutput);
-        renderContext.put("marshallerContext", marshallerContext);
-
-        // add all inputs as direct entries
-        if (input instanceof Map) {
-            renderContext.put("inputs", input);
-            for (Map.Entry<String, Object> inputVar : ((Map<String, Object>)input).entrySet()) {
-                renderContext.put(inputVar.getKey(), inputVar.getValue());
+            if (input == null) {
+                input = new HashMap<String, Object>();
             }
-        } else {
-            renderContext.put("input", input);
-        }
 
-        // find form
-        for (FormProvider provider : providers) {
-            String template = provider.render(name, task, processDesc, renderContext);
-            if (!StringUtils.isEmpty(template)) return template;
-        }
+            Object output = null;
+            long outputContentId = task.getTaskData().getOutputContentId();
+            if (outputContentId != -1) {
+                Content content = taskService.getContentById(outputContentId);
+                output = ContentMarshallerHelper.unmarshall(content.getContent(), marshallerContext.getEnvironment(), marshallerContext.getClassloader());
+            }
+            if (output == null) {
+                output = new HashMap<String, Object>();
+            }
 
-        logger.warn("Unable to find form to render for task '{}' on process '{}'", name, processDesc.getName());
+            // prepare task variables for rendering
+            String processId = task.getTaskData().getProcessId();
+            Map<String, String> taskOutputMappings = null;
+            if (processId != null && !processId.equals("")) {
+
+                taskOutputMappings = bpmn2Service.getTaskOutputMappings(processId, task.getNames().iterator().next().getText());
+
+            }
+            if (taskOutputMappings == null) {
+                taskOutputMappings = new HashMap<String, String>();
+            }
+
+            // I need to replace the value that comes from the 
+            //process mappings with the value that can be stored in the output Content
+            Map<String, Object> finalOutput = new HashMap<String, Object>();
+            for (String key : taskOutputMappings.values()) {
+
+                Object value = ((Map<String, Object>) output).get(key);
+                if (value == null) {
+                    // WM value = "";
+                }
+                finalOutput.put(key, value);
+            }
+
+
+            // merge template with process variables        
+            renderContext.put("task", task);
+            renderContext.put("outputs", finalOutput);
+            renderContext.put("marshallerContext", marshallerContext);
+
+            // add all inputs as direct entries
+            if (input instanceof Map) {
+                renderContext.put("inputs", input);
+                for (Map.Entry<String, Object> inputVar : ((Map<String, Object>)input).entrySet()) {
+                    renderContext.put(inputVar.getKey(), inputVar.getValue());
+                }
+            } else {
+                renderContext.put("input", input);
+            }
+
+            // find form
+            for (FormProvider provider : providers) {
+                String template = provider.render(name, task, processDesc, renderContext);
+                if (!StringUtils.isEmpty(template)) return template;
+            }
+
+            logger.warn("Unable to find form to render for task '{}' on process '{}'", name, processDesc.getName());
+        }
         return "";
     }
 
